@@ -106,18 +106,16 @@ p2d project(p3d orig, p3d view, plane scr)
         D=l.s.x, E=l.s.y, F=l.s.z,
         d=l.m.x, e=l.m.y, f=l.m.z;
     float t = (A*(a-d)+B*(b-e)+C*(c-f))/(A*D+B*E+C*F);
-//    printf("t: %f\n", t); ////////////////////
+
     v3d ret1 = {a-D*t+d, b-E*t+e, c-F*t+f};
-/*    printv(ret1); ///////////
-    printv(scr.x); //////////
-    printv(scr.y); ////////// */
+
     p2d ret2 = {scalar_prod(ret1, scr.x), scalar_prod(ret1, scr.y)};
     return ret2;
 }
     
 #include <stdlib.h>
  
-main()
+int main()
 {
         srand(10);
         p3d *ps = malloc(10*sizeof(p3d));
@@ -126,7 +124,13 @@ main()
                 p3d rp = {rand()%40, rand()%40, rand()%40};
                 *(ps+i) = rp;
 		printf("(%f, %f, %f)\n", ps[i].x, ps[i].y, ps[i].z);
-        }      
+        }
+
+	p3d tmpp = {0.0f,  0.0f, 0.0f};
+	*ps = tmpp;
+	p3d tmpp1 = {10.0f, 10.0f, 10.0f};
+	*(ps+1) = tmpp1;
+
 	plane screen = {.m={50.0f, 50.0f, 50.0f}, .n={0.7071f, 0.7071f, 0.7071f}};
 	create_coordinates(&screen);
 	p3d view = {100.0f, 100.0f, 100.0f};
@@ -136,5 +140,5 @@ main()
 		p2d cp = project(*(ps+i), view, screen);
 		printf("projected dot: (%.2f, %.2f)\n", cp.x, cp.y);
 	}
-	
+	return 0;	
 }
