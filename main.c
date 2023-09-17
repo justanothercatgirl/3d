@@ -1,46 +1,68 @@
 #include <stdio.h>
- 
-typedef struct 
-{
+
+typedef struct {
     float x, y, z;
 } p3d;
- 
-typedef struct
-{
+
+typedef struct {
     float x, y;
 } p2d;
- 
-typedef struct
-{
+
+typedef struct {
     float x, y, z;
 } v3d;
- 
-typedef struct
-{
+
+typedef struct {
     p3d m; //ASSUMING THIS IS STARTING POINT OF COORDINATES
     v3d n;
     v3d x, y;
 } plane;
- 
-typedef struct 
-{
+
+typedef struct {
     p3d m;
-    v3d s;
+	v3d s;
 } line;
- 
+
+typedef struct {
+	float cosx, cosy, cosz;
+} rot_mrx;
+
+typedef struct {
+    float val[3][3];
+} mrx3_3;
+
+v3d mulvm(mrx3_3 *mrx_u, v3d v)
+{   //this code is soooo memory-unsafe
+	v3d ret = { 0.0f, 0.0f, 0.0f};
+	float *mrx = (float*)mrx_u,
+		  *varr = (float*)&v, 
+		  *retarr = (float*)&ret;
+	for(int i = 0; i < 3; ++i)
+		for(int j = 0; j < 3; ++j)
+			retarr[i] += *(mrx+3*i+j) * varr[j];
+	return ret;
+}   //handling memory like it's nuclear warhead
+
+
+
+p3d mulpm(mrx3_3 *mrx_u, p3d p)
+{
+	v3d tmp = mulvm(mrx_u, *(p3d*)&p);
+	return *(p3d*)&tmp;
+}
+
 v3d p2v(p3d a, p3d b)
 {
     v3d ret = {b.x-a.x, b.y-a.y, b.z-a.z};
     return ret;
 }
 
-
 void printv(v3d v)
 {
 	printf("vector: (%f. %f, %f)\n", v.x, v.y, v.z);
 }
 
-//yes i absolutely stole this
+//yes, i absolutely stole this.
 //credits to Quake III
 float Q_rsqrt( float number )
 {
