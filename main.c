@@ -1,5 +1,7 @@
 #include <stdio.h>
-#include <stdarg.h>
+#include <string.h>
+#include <stdlib.h>
+
 typedef struct {
     float x, y, z;
 } p3d;
@@ -57,9 +59,9 @@ v3d p2v(p3d a, p3d b)
     return ret;
 }
 
-void printv(v3d v)
+void printv(v3d *v)
 {
-	printf("vector: (%f. %f, %f)\n", v.x, v.y, v.z);
+	printf("vector: (%f. %f, %f)\n", v->x, v->y, v->z);
 }
 
 //yes, i absolutely stole this.
@@ -137,6 +139,7 @@ p2d project(p3d orig, p3d view, plane scr)
 
 float getscale(p2d* ps, int size, int sx, int sy)
 {
+	printf("%s\n", __PRETTY_FUNCTION__);
 	p2d min = {10e6, 10e6}, max = {-10e6, -10e6};
 	for(int i = 0; i < size; ++i)
 	{
@@ -150,12 +153,14 @@ float getscale(p2d* ps, int size, int sx, int sy)
 		else if(ps[i].y < min.y)
 			min.y = ps[i].y;
 	}
+	float sclx = sx/(max.x-min.x), scly = sy/(max.y-min.y);
+	return sclx > scly ? scly : sclx; //assuming the scale factor is same for x and y.
+					  //might have to rework this later
 }
 
-void plntscr(char** grid, int gridw, int gridh, plane p, p2d* ps, int pss, int scale)
-{
-	if (scale = -1)
-		return;
+void plntscr(char* grid, int gridw, int gridh, plane p, p2d* ps, int pss, float scale)
+{	//pass scale == -1 for it to be determned automatically
+	if (scale == -1) scale = getscale(ps, pss, gridw, gridh);
 
 	memset(grid, 0, sizeof(int)*gridw*gridh); //uhuhm
 	for(int i = 0; i < pss; ++i)
@@ -165,28 +170,37 @@ void plntscr(char** grid, int gridw, int gridh, plane p, p2d* ps, int pss, int s
 	}
 }
 
-#include <stdlib.h>
- 
+void printpln(char* grid, int gridw, int gridh)
+{	//it tries to print it based on brightness?..
+	for(int i = 0; i < gridw; ++i)
+	{
+		for(int j = 0; j < gridh; ++j)
+			printf("%c", " .,-+*%&&$#@@@@@@@@@@"[*(grid + i * gridw + j)]);
+		printf("\n");
+	}
+}
+
+
 int main()
 {
-        srand(10);
-        p3d *ps = malloc(10*sizeof(p3d));
-        for(int i = 0; i < 10; ++i)
-        {       
-                p3d rp = {rand()%40, rand()%40, rand()%40};
-                *(ps+i) = rp;
-		printf("(%f, %f, %f)\n", ps[i].x, ps[i].y, ps[i].z);
-        }
-
-	p3d tmpp = {0.0f,  0.0f, 0.0f};
-	*ps = tmpp;
-	p3d tmpp1 = {10.0f, 10.0f, 10.0f};
-	*(ps+1) = tmpp1;
+	const float points[5][3] = {{0, 0, 0}, {1, 1, 1}, {2, 2, 2}, {3, 3, 3}, {4, 4, 4}};
+        p3d *ps = malloc(5*sizeof(p3d));
+        for(int i = 0; i < 5; ++i)
+        {
+		(ps+i)->x = points[i][0];
+		(ps+i)->y = points[i][1];
+		(ps+i)->z = points[i][2];
+	}
 
 	plane screen = {.m={50.0f, 50.0f, 50.0f}, .n={0.7071f, 0.7071f, 0.7071f}};
 	create_coordinates(&screen);
 	p3d view = {100.0f, 100.0f, 100.0f};
-	p2d *ps2 = malloc(10*sizeof(p2d));
+	p2d *ps2 = malloc(5*sizeof(p2d));
+	char pixels[50][50];
+	memset(pixels, 0, 50*50*sizeof(char));
+	plntscr((char*)pixels, 50, 50, screen, ps2, 5, -1);
+	printpln((char*)pixels, 50, 50);
+
 	for(int i = 0; i < 10; ++i)
 	{
 		p2d cp = project(*(ps+i), view, screen);
