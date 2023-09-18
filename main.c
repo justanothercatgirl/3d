@@ -1,5 +1,5 @@
 #include <stdio.h>
-
+#include <stdarg.h>
 typedef struct {
     float x, y, z;
 } p3d;
@@ -47,7 +47,7 @@ v3d mulvm(mrx3_3 *mrx_u, v3d v)
 
 p3d mulpm(mrx3_3 *mrx_u, p3d p)
 {
-	v3d tmp = mulvm(mrx_u, *(p3d*)&p);
+	v3d tmp = mulvm(mrx_u, *(v3d*)&p);
 	return *(p3d*)&tmp;
 }
 
@@ -134,7 +134,37 @@ p2d project(p3d orig, p3d view, plane scr)
     p2d ret2 = {scalar_prod(ret1, scr.x), scalar_prod(ret1, scr.y)};
     return ret2;
 }
-    
+
+float getscale(p2d* ps, int size, int sx, int sy)
+{
+	p2d min = {10e6, 10e6}, max = {-10e6, -10e6};
+	for(int i = 0; i < size; ++i)
+	{
+		if (ps[i].x > max.x) 
+			max.x = ps[i].x;
+		else if(ps[i].x < min.x)
+			min.x = ps[i].x;
+
+		if (ps[i].y > max.y) 
+			max.y = ps[i].y;
+		else if(ps[i].y < min.y)
+			min.y = ps[i].y;
+	}
+}
+
+void plntscr(char** grid, int gridw, int gridh, plane p, p2d* ps, int pss, int scale)
+{
+	if (scale = -1)
+		return;
+
+	memset(grid, 0, sizeof(int)*gridw*gridh); //uhuhm
+	for(int i = 0; i < pss; ++i)
+	{
+		int x = ps[i].x*scale, y = ps[i].y*scale;
+		++*(grid + gridw*x +y);
+	}
+}
+
 #include <stdlib.h>
  
 int main()
