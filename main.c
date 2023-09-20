@@ -2,42 +2,14 @@
 #include <string.h>
 #include <stdlib.h>
 
-typedef struct {
-    float x, y, z;
-} p3d;
+#include "types.h"
 
-typedef struct {
-    float x, y;
-} p2d;
-
-typedef struct {
-    float x, y, z;
-} v3d;
-
-typedef struct {
-    p3d m; //ASSUMING THIS IS STARTING POINT OF COORDINATES
-    v3d n;
-    v3d x, y;
-} plane;
-
-typedef struct {
-    p3d m;
-	v3d s;
-} line;
-
-typedef struct {
-	float cosx, cosy, cosz;
-} rot_mrx;
-
-typedef struct {
-    float val[3][3];
-} mrx3_3;
-
-v3d mulvm(mrx3_3 *mrx_u, v3d v)
+//multiply vector by a matrix
+v3d mulvm(mrx3_3 *mrx_u, v3d *v)
 {   //this code is soooo memory-unsafe
 	v3d ret = { 0.0f, 0.0f, 0.0f};
 	float *mrx = (float*)mrx_u,
-		  *varr = (float*)&v, 
+		  *varr = (float*)v, 
 		  *retarr = (float*)&ret;
 	for(int i = 0; i < 3; ++i)
 		for(int j = 0; j < 3; ++j)
@@ -45,20 +17,21 @@ v3d mulvm(mrx3_3 *mrx_u, v3d v)
 	return ret;
 }   //handling memory like it's nuclear warhead
 
-
-
-p3d mulpm(mrx3_3 *mrx_u, p3d p)
+//multiply point by a matrix (basically a bad overload of mulvm)
+p3d mulpm(mrx3_3 *mrx_u, p3d *p)
 {
-	v3d tmp = mulvm(mrx_u, *(v3d*)&p);
+	v3d tmp = mulvm(mrx_u, (v3d*)p);
 	return *(p3d*)&tmp;
 }
 
+//construct vector from two points
 v3d p2v(p3d a, p3d b)
 {
     v3d ret = {b.x-a.x, b.y-a.y, b.z-a.z};
     return ret;
 }
 
+//pretty self-explanatory
 void printv(v3d *v)
 {
 	printf("vector: (%f. %f, %f)\n", v->x, v->y, v->z);
@@ -83,31 +56,35 @@ float Q_rsqrt( float number )
  	return y;
 }
 
-float scalar_prod(v3d v1, v3d v2)
-{
-	return v1.x*v2.x + v1.y*v2.y + v1.z*v2.z;
-}
-
 v3d cross_prod(v3d v1, v3d v2)
-{
+{   //i don't know why would anyone ever need documentation on this
 	v3d ret = {v1.y*v2.z-v1.z*v2.y, v1.x*v2.z-v1.z*v2.x, v1.x*v2.y-v1.y*v2.x};
 	return ret;
 }
 
+float scalar_prod(v3d v1, v3d v2)
+{   //same here
+	return v1.x*v2.x + v1.y*v2.y + v1.z*v2.z;
+}
+
+//normalizes vector in-place
 void normalize(v3d* v)
-{
+{   
 	float scale = Q_rsqrt(v->x * v->x + v->y * v->y + v->z * v->z);
 	v->x *= scale;
 	v->y *= scale;
 	v->z *= scale;
 }
 
+//creates a coordinate system (sets values to plane.x and plane.y)
+//since I don't know how to rotate coordinates initially, 
+//i've just chosen random numbers and solved equations for them
 void create_coordinates(plane *p)
 {
-	float x1=0, y1=8, z1,
-	      x2=2, y2=4, z2;
-	p3d p1 = {0, 8, 0},
-	    p2 = {2, 4, 0};
+	float x1=0, y1=8, z1,   //the random numbers 
+	      x2=2, y2=4, z2;   //mentioned above
+	p3d p1 = {x1, y1, 0},     //????????????
+	    p2 = {x2, y2, 0};     //I have a lot of questions to my sanity
 	float A=p->n.x, B=p->n.y, C=p->n.z,
 	      a=p->m.x, b=p->m.y, c=p->m.z;
 	p1.z = (A*(a-p1.x)+B*(b-p1.y))/C + c;
@@ -120,7 +97,8 @@ void create_coordinates(plane *p)
 	normalize(&(p->y));
 }
 
-
+//calculate a projection of point orig on plane scr relative to viewer view
+//basically construct a vector p2v(view, orig) and calculate where it intersects the plane
 p2d project(p3d orig, p3d view, plane scr)
 {
     line l = {view,p2v(view, orig)};
@@ -137,12 +115,15 @@ p2d project(p3d orig, p3d view, plane scr)
     return ret2;
 }
 
+//calculate how much the plane needs to be scaled 
+//for all points to fit in array [sx][sy] 
 float getscale(p2d* ps, int size, int sx, int sy)
 {
-	printf("%s\n", __PRETTY_FUNCTION__);
 	p2d min = {10e6, 10e6}, max = {-10e6, -10e6};
 	for(int i = 0; i < size; ++i)
 	{
+	    printv((v3d*)(ps+i));
+		
 		if (ps[i].x > max.x) 
 			max.x = ps[i].x;
 		else if(ps[i].x < min.x)
@@ -154,57 +135,81 @@ float getscale(p2d* ps, int size, int sx, int sy)
 			min.y = ps[i].y;
 	}
 	float sclx = sx/(max.x-min.x), scly = sy/(max.y-min.y);
-	return sclx > scly ? scly : sclx; //assuming the scale factor is same for x and y.
-					  //might have to rework this later
+	
+	//assuming the scale factor is same for x and y.
+	//might have to rework this later
+	return sclx > scly ? scly : sclx;
 }
 
+//convert plane in memory to screen 2d-array
+//for each point in ps* multiply it by scale factor 
+//and increment the 2d-array at the received position
 void plntscr(char* grid, int gridw, int gridh, plane p, p2d* ps, int pss, float scale)
-{	//pass scale == -1 for it to be determned automatically
+{	//pass scale = -1 for it to be determned automatically
 	if (scale == -1) scale = getscale(ps, pss, gridw, gridh);
 
-	memset(grid, 0, sizeof(int)*gridw*gridh); //uhuhm
+	memset(grid, 0, sizeof(char)*gridw*gridh);
 	for(int i = 0; i < pss; ++i)
 	{
 		int x = ps[i].x*scale, y = ps[i].y*scale;
+		if (x < 0 || x >= gridw || y < 0 || y >= gridh)
+		{
+			printf("invalid x or y: %i or %i\n", x, y);
+			continue;
+		}
+		printf("%i, %i, addr: %p\n", x, y, grid+gridw*x+y);
 		++*(grid + gridw*x +y);
+		printf("point: (%f, %f); point on plane: (%i, %i); value: %hhi\n", 
+				ps[i].x, ps[i].y, 
+				x, y, 
+				*(grid+gridw*x+y));
 	}
 }
 
+//print plane
 void printpln(char* grid, int gridw, int gridh)
 {	//it tries to print it based on brightness?..
 	for(int i = 0; i < gridw; ++i)
 	{
 		for(int j = 0; j < gridh; ++j)
-			printf("%c", " .,-+*%&&$#@@@@@@@@@@"[*(grid + i * gridw + j)]);
+		{
+		    int ind = *(grid+i*gridw+j);
+			printf("%c", " .,-+*%&&$#@"[ind > 11 ? 11 : ind]);
+		}
 		printf("\n");
 	}
 }
 
 
+#define N_POINTS 5
 int main()
 {
-	const float points[5][3] = {{0, 0, 0}, {1, 1, 1}, {2, 2, 2}, {3, 3, 3}, {4, 4, 4}};
-        p3d *ps = malloc(5*sizeof(p3d));
-        for(int i = 0; i < 5; ++i)
-        {
+    //construct n points
+	const float points[N_POINTS][3] = 
+	    {{0, 0, 0}, {1, 1, 1}, {2, 6, 2}, {3, 3, 3}, {4, 4, 4}};
+    p3d *ps = malloc(N_POINTS*sizeof(p3d));
+    for(int i = 0; i < N_POINTS; ++i)
+    {
 		(ps+i)->x = points[i][0];
 		(ps+i)->y = points[i][1];
 		(ps+i)->z = points[i][2];
 	}
 
+    //create screen, coordinates, view point and array for projected points
 	plane screen = {.m={50.0f, 50.0f, 50.0f}, .n={0.7071f, 0.7071f, 0.7071f}};
 	create_coordinates(&screen);
 	p3d view = {100.0f, 100.0f, 100.0f};
-	p2d *ps2 = malloc(5*sizeof(p2d));
-	char pixels[50][50];
-	memset(pixels, 0, 50*50*sizeof(char));
-	plntscr((char*)pixels, 50, 50, screen, ps2, 5, -1);
-	printpln((char*)pixels, 50, 50);
+	p2d *ps2 = malloc(N_POINTS*sizeof(p2d));
 
-	for(int i = 0; i < 10; ++i)
-	{
-		p2d cp = project(*(ps+i), view, screen);
-		printf("projected dot: (%.2f, %.2f)\n", cp.x, cp.y);
-	}
+    //project the points
+	for(int i = 0; i < N_POINTS; ++i)
+	    ps2[i] = project(*(ps+i), view, screen);
+    
+    //construct the screen mapping, fill it with point data and print out
+	char pixels[50][40];
+	memset(pixels, 0, 50*40*sizeof(char));
+	plntscr((char*)pixels, 50, 40, screen, ps2, N_POINTS, -1);
+	printpln((char*)pixels, 50, 40);
+
 	return 0;	
 }
