@@ -1,23 +1,23 @@
 typedef struct {
-    float x, y, z;
+	float x, y, z;
 } p3d;
 
 typedef struct {
-    float x, y;
+	float x, y;
 } p2d;
 
 typedef struct {
-    float x, y, z;
+	float x, y, z;
 } v3d;
 
 typedef struct {
-    p3d m; //ASSUMING THIS IS STARTING POINT OF COORDINATES
-    v3d n;
-    v3d x, y;
+	p3d m; //ASSUMING THIS IS STARTING POINT OF COORDINATES
+	v3d n;
+	v3d x, y;
 } plane;
 
 typedef struct {
-    p3d m;
+	p3d m;
 	v3d s;
 } line;
 
@@ -26,7 +26,7 @@ typedef struct {
 } rotation;
 
 typedef struct {
-    float val[3][3];
+	float val[3][3];
 } mrx3_3;
 
 typedef p3d point3d;

@@ -4,41 +4,35 @@
 
 #include "types.h"
 
-//multiply vector by a matrix
 v3d mulvm(mrx3_3 *mrx_u, v3d *v)
 {   //this code is soooo memory-unsafe
 	v3d ret = { 0.0f, 0.0f, 0.0f};
 	float *mrx = (float*)mrx_u,
-		  *varr = (float*)v, 
-		  *retarr = (float*)&ret;
+	      *varr = (float*)v, 
+	      *retarr = (float*)&ret;
 	for(int i = 0; i < 3; ++i)
 		for(int j = 0; j < 3; ++j)
 			retarr[i] += *(mrx+3*i+j) * varr[j];
 	return ret;
 }   //handling memory like it's nuclear warhead
 
-//multiply point by a matrix (basically a bad overload of mulvm)
 p3d mulpm(mrx3_3 *mrx_u, p3d *p)
 {
 	v3d tmp = mulvm(mrx_u, (v3d*)p);
 	return *(p3d*)&tmp;
 }
 
-//construct vector from two points
 v3d p2v(p3d a, p3d b)
 {
-    v3d ret = {b.x-a.x, b.y-a.y, b.z-a.z};
-    return ret;
+	v3d ret = {b.x-a.x, b.y-a.y, b.z-a.z};
+	return ret;
 }
 
-//pretty self-explanatory
 void printv(v3d *v)
 {
 	printf("vector: (%f. %f, %f)\n", v->x, v->y, v->z);
 }
 
-//yes, i absolutely stole this.
-//credits to Quake III
 float Q_rsqrt( float number )
 {
 	long i;
@@ -51,9 +45,9 @@ float Q_rsqrt( float number )
 	i  = 0x5f3759df - ( i >> 1 );               // what the fuck?
 	y  = * ( float * ) &i;
 	y  = y * ( threehalfs - ( x2 * y * y ) );   // 1st iteration
-	y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
+	/* y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed */
 
- 	return y;
+	return y;
 }
 
 v3d cross_prod(v3d v1, v3d v2)
@@ -62,12 +56,11 @@ v3d cross_prod(v3d v1, v3d v2)
 	return ret;
 }
 
-float scalar_prod(v3d v1, v3d v2)
+float dot_prod(v3d v1, v3d v2)
 {   //same here
 	return v1.x*v2.x + v1.y*v2.y + v1.z*v2.z;
 }
 
-//normalizes vector in-place
 void normalize(v3d* v)
 {   
 	float scale = Q_rsqrt(v->x * v->x + v->y * v->y + v->z * v->z);
@@ -89,7 +82,7 @@ void create_coordinates(plane *p)
 	      a=p->m.x, b=p->m.y, c=p->m.z;
 	p1.z = (A*(a-p1.x)+B*(b-p1.y))/C + c;
 	p2.z = (A*(a-p2.x)+B*(b-p2.y))/C + c;
-	
+
 	v3d base = p2v(p1, p2);
 	p->x = base;
 	p->y = cross_prod(base, p->n);
@@ -97,22 +90,28 @@ void create_coordinates(plane *p)
 	normalize(&(p->y));
 }
 
+// find intersection point between two lines
+p3d line_plane_intersec(line* l, plane* p) {
+	float	A = p->n.x, B = p->n.y, C = p->n.z,
+		a = p->m.x, b = p->m.y, c = p->m.z,
+		D = l->s.x, E = l->s.y, F = l->s.y,
+		d = l->m.x, e = l->m.y, f = l->m.z;
+	float t = (A*(a-d) + B*(b-e) + C*(c-f)) / (A*D + B*E + C*F);
+	p3d inter = {d + D*t, e + E*t, f + F*t};
+	return inter;
+}
+
 //calculate a projection of point orig on plane scr relative to viewer view
 //basically construct a vector p2v(view, orig) and calculate where it intersects the plane
-p2d project(p3d orig, p3d view, plane scr)
+p2d project(p3d *orig, p3d *view, plane *scr)
 {
-    line l = {view,p2v(view, orig)};
-    float
-        A=scr.n.x, B=scr.n.y, C=scr.n.z,
-        a=scr.m.x, b=scr.m.y, c=scr.m.z,
-        D=l.s.x, E=l.s.y, F=l.s.z,
-        d=l.m.x, e=l.m.y, f=l.m.z;
-    float t = (A*(a-d)+B*(b-e)+C*(c-f))/(A*D+B*E+C*F);
-
-    v3d ret1 = {a-D*t+d, b-E*t+e, c-F*t+f};
-
-    p2d ret2 = {scalar_prod(ret1, scr.x), scalar_prod(ret1, scr.y)};
-    return ret2;
+	line l = {.m = *view, .s = p2v(*view, *orig)};
+	p3d intersection = line_plane_intersec(&l, scr);
+	v3d z_coord_tmp = {0, 0, 0};
+	v3d new_basis[3] = {scr->x, scr->y, z_coord_tmp};
+	p3d projected = mulpm((mrx3_3*)new_basis, &intersection);
+	p2d ret = {ret.x, ret.y};
+	return ret;
 }
 
 //calculate how much the plane needs to be scaled 
@@ -122,8 +121,8 @@ float getscale(p2d* ps, int size, int sx, int sy)
 	p2d min = {10e6, 10e6}, max = {-10e6, -10e6};
 	for(int i = 0; i < size; ++i)
 	{
-	    printv((v3d*)(ps+i));
-		
+		printv((v3d*)(ps+i));
+
 		if (ps[i].x > max.x) 
 			max.x = ps[i].x;
 		else if(ps[i].x < min.x)
@@ -135,7 +134,7 @@ float getscale(p2d* ps, int size, int sx, int sy)
 			min.y = ps[i].y;
 	}
 	float sclx = sx/(max.x-min.x), scly = sy/(max.y-min.y);
-	
+
 	//assuming the scale factor is same for x and y.
 	//might have to rework this later
 	return sclx > scly ? scly : sclx;
@@ -173,7 +172,7 @@ void printpln(char* grid, int gridw, int gridh)
 	{
 		for(int j = 0; j < gridh; ++j)
 		{
-		    int ind = *(grid+i*gridw+j);
+			int ind = *(grid+i*gridw+j);
 			printf("%c", " .,-+*%&&$#@"[ind > 11 ? 11 : ind]);
 		}
 		printf("\n");
@@ -184,28 +183,28 @@ void printpln(char* grid, int gridw, int gridh)
 #define N_POINTS 5
 int main()
 {
-    //construct n points
+	//construct n points
 	const float points[N_POINTS][3] = 
-	    {{0, 0, 0}, {1, 1, 1}, {2, 6, 2}, {3, 3, 3}, {4, 4, 4}};
-    p3d *ps = malloc(N_POINTS*sizeof(p3d));
-    for(int i = 0; i < N_POINTS; ++i)
-    {
+	{{0, 0, 0}, {1, 1, 1}, {2, 6, 2}, {3, 3, 3}, {4, 4, 4}};
+	p3d *ps = malloc(N_POINTS*sizeof(p3d));
+	for(int i = 0; i < N_POINTS; ++i)
+	{
 		(ps+i)->x = points[i][0];
 		(ps+i)->y = points[i][1];
 		(ps+i)->z = points[i][2];
 	}
 
-    //create screen, coordinates, view point and array for projected points
+	//create screen, coordinates, view point and array for projected points
 	plane screen = {.m={50.0f, 50.0f, 50.0f}, .n={0.7071f, 0.7071f, 0.7071f}};
 	create_coordinates(&screen);
 	p3d view = {100.0f, 100.0f, 100.0f};
 	p2d *ps2 = malloc(N_POINTS*sizeof(p2d));
 
-    //project the points
+	//project the points
 	for(int i = 0; i < N_POINTS; ++i)
-	    ps2[i] = project(*(ps+i), view, screen);
-    
-    //construct the screen mapping, fill it with point data and print out
+		ps2[i] = project((ps+i), &view, &screen);
+
+	//construct the screen mapping, fill it with point data and print out
 	char pixels[50][40];
 	memset(pixels, 0, 50*40*sizeof(char));
 	plntscr((char*)pixels, 50, 40, screen, ps2, N_POINTS, -1);
